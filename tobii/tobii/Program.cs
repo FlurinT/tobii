@@ -32,8 +32,12 @@ namespace Interaction_Interactors_101
 
             PrintSampleIntroText();
 
+            Process[] processes = Process.GetProcessesByName("Firefox");
+
+                // do something with windowHandle
+
             // InteractorAgents are defined per window, so we need a handle to it.
-            var currentWindowHandle = Process.GetCurrentProcess().MainWindowHandle;
+            var currentWindowHandle = processes[1].MainWindowHandle;
             // Let's also obtain its bounds using Windows API calls (hidden in a helper method below).
             var currentWindowBounds = GetWindowBounds(currentWindowHandle);
             // Let's create the InteractorAgent.
