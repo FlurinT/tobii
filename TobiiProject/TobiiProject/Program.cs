@@ -6,9 +6,11 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Tobii.Interaction;
+using System.Windows.Input;
 
 namespace TobiiProject
 {
@@ -29,10 +31,15 @@ namespace TobiiProject
             int xCord = 0;
             int yCord = 0;
 
+            Form circleForm;
+
             var host = new Host();
             var gazePointDataStream = host.Streams.CreateGazePointDataStream();
 
             gazePointDataStream.GazePoint((x, y, ts) => { xCord = (int)x; yCord = (int)y; });
+
+
+
 
             Hook.GlobalEvents().OnCombination(new Dictionary<Combination, Action>
                 {
@@ -54,6 +61,7 @@ namespace TobiiProject
                             SetForegroundWindow(WindowFromPoint(new Point(xCord,yCord)));
                         }
                     },
+                    // Send input to message without changing focus
                     {Combination.FromString("Shift+Alt+L"), () => {
 
                             IntPtr activeWindow = Process.GetCurrentProcess().MainWindowHandle;
@@ -67,15 +75,23 @@ namespace TobiiProject
                             PostMessage(newWindow, WM_KEYUP, VK_F5, 0);
                         }
                     },
+                    // Feedback for the user (red circle)
                     {Combination.FromString("Shift+Alt+Z"), () => {
-                            IntPtr childWindow = WindowFromPoint(new Point(xCord,yCord));
-                            IntPtr parentWindow = GetParent(childWindow);
-                            SetForegroundWindow(parentWindow);
-                            SetActiveWindow(parentWindow);
+                            //IntPtr childWindow = WindowFromPoint(new Point(xCord,yCord));
+                            //IntPtr parentWindow = GetParent(childWindow);
+                            //SetForegroundWindow(parentWindow);
+                            //SetActiveWindow(parentWindow);
                             //DrawRect(parentWindow, 5.0f);
-                            DrawPoint(xCord,yCord);
+
+                            circleForm = new Form2();
+                            circleForm.Show();
+                            circleForm.Location = new Point(Cursor.Position.X, Cursor.Position.Y);
+
+
+                           //DrawPoint(Cursor.Position.X,Cursor.Position.Y, System.Windows.Forms.Screen.PrimaryScreen.Bounds.Height / 10);
                         }
                     },
+                    // clicking at gaze position then returning mouse to old position
                     {Combination.FromString("Alt+P"), () => {
                             int oldX = Cursor.Position.X;
                             int oldY = Cursor.Position.Y;
@@ -92,18 +108,27 @@ namespace TobiiProject
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new Form1());
+            
 
         }
 
-        public static void DrawPoint(int xCord, int yCord) { 
+        public static void DrawPoint(int xCord, int yCord, int pointR) { 
             IntPtr desktopPtr = GetDC(IntPtr.Zero);
-            Graphics g = Graphics.FromHdc(desktopPtr);
+            Graphics g = Graphics.FromHwnd(IntPtr.Zero);
+
+            Console.WriteLine("g X size: " + g.DpiX);
+            Console.WriteLine("g Y size: " + g.DpiY);
+
+            Console.WriteLine("Screen width: " + System.Windows.Forms.Screen.PrimaryScreen.Bounds.Width);
+            Console.WriteLine("Screen height: " + System.Windows.Forms.Screen.PrimaryScreen.Bounds.Height);
+
+            Console.WriteLine("Mouse X: " + Cursor.Position.X);
+            Console.WriteLine("Mouse Y: " + Cursor.Position.Y);
 
             SolidBrush b = new SolidBrush(Color.Red);
             //g.FillRectangle(b, new System.Drawing.Rectangle(0, 0, 1366, 768));
-            g.FillEllipse(b, new System.Drawing.Rectangle(xCord-5, yCord - 5, xCord + 5, yCord + 5));
-            g.Dispose();
-            ReleaseDC(IntPtr.Zero, desktopPtr);
+            g.FillEllipse(b, new System.Drawing.Rectangle(xCord+20, yCord+30, pointR, pointR));
+ 
         }
 
         public static void DrawRect(IntPtr hWnd, float penWidth)
@@ -189,5 +214,56 @@ namespace TobiiProject
         [DllImport("user32", CharSet = CharSet.Auto)]
         public static extern uint SendMessage(IntPtr hWnd, int Msg, int wParam, int lParam);
 
+
+    }
+
+
+    public partial class Form2 : Form
+    {
+
+        public Form2()
+        {
+            this.Opacity = .9;
+            this.TopMost = true;
+            this.BackColor = Color.Red;
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
+            this.Size = new System.Drawing.Size(System.Windows.Forms.Screen.PrimaryScreen.Bounds.Width / 20, System.Windows.Forms.Screen.PrimaryScreen.Bounds.Width / 20);
+
+            // Makes the form circular:
+            System.Drawing.Drawing2D.GraphicsPath GP = new System.Drawing.Drawing2D.GraphicsPath();
+            GP.AddEllipse(this.ClientRectangle);
+            this.Region = new Region(GP);
+
+            System.Windows.Forms.Timer timer1 = new System.Windows.Forms.Timer();
+            timer1.Interval = 20;//5 seconds
+            timer1.Tick += new System.EventHandler(timer1_Tick);
+            timer1.Start();
+
+        }
+
+        const int WS_EX_TRANSPARENT = 0x20;
+
+        protected override System.Windows.Forms.CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams cp = base.CreateParams;
+                cp.ExStyle = cp.ExStyle | WS_EX_TRANSPARENT;
+                return cp;
+            }
+        }
+
+        private void timer1_Tick(object sender, EventArgs e)
+        {
+            if ((GetKeyState(Keys.LMenu) & (1 << 16)) == 0){
+                this.DestroyHandle();
+            }
+            Point pt = Cursor.Position;
+            pt.Offset(-1 * this.Width / 5, -1 * this.Height / 5);
+            this.Location = pt;
+        }
+
+        [DllImport("user32.dll")]
+        public static extern short GetKeyState(Keys key);
     }
 }
