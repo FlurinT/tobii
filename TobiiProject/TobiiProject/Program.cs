@@ -16,6 +16,8 @@ namespace TobiiProject
 {
     static class Program
     {
+        static public int gazeX = 0;
+        static public int gazeY = 0;
         struct Rect { public int left, top, right, bottom; }
 
         /// <summary>
@@ -36,7 +38,7 @@ namespace TobiiProject
             var host = new Host();
             var gazePointDataStream = host.Streams.CreateGazePointDataStream();
 
-            gazePointDataStream.GazePoint((x, y, ts) => { xCord = (int)x; yCord = (int)y; });
+            gazePointDataStream.GazePoint((x, y, ts) => { xCord = (int)x; yCord = (int)y; gazeX = (int)x; gazeY = (int)y;});
 
 
 
@@ -258,7 +260,7 @@ namespace TobiiProject
             if ((GetKeyState(Keys.LMenu) & (1 << 16)) == 0){
                 this.DestroyHandle();
             }
-            Point pt = Cursor.Position;
+            Point pt = new Point(Program.gazeX, Program.gazeY);
             pt.Offset(-1 * this.Width / 5, -1 * this.Height / 5);
             this.Location = pt;
         }
